@@ -1,0 +1,113 @@
+﻿@using System.Configuration;
+@using System.Data;
+@using System.Data.SqlClient;
+@using System.Linq;
+@{
+    ViewBag.Title = "Home";
+
+    var con = new SqlConnection(ConfigurationManager.ConnectionStrings["SqlDbContext"].ConnectionString);
+    con.Open();
+    var database = con.Database.ToString();
+
+    con.Close();
+
+    var numberOfColumn = 7;
+
+    if (Request.QueryString["download"] == "true")
+    {        
+        Response.ClearHeaders();
+        Response.ContentType = "application/vnd.ms-excel";
+        Response.AddHeader("Content-Disposition", "attachment; filename=database-tables.xls");                
+    }
+}
+<div style="margin-bottom: 15px;">
+    <a href="/?download=true" class="btn btn-default">Export to Excel</a>
+</div>
+<TABLE BORDER=1>
+    <tr>
+        <td colspan='@numberOfColumn' align='center'>
+            <H3>Table Design for: @database</H3>
+        </td>
+    </tr>
+    <tr><td colspan='@numberOfColumn' align='center'>&nbsp;</td></tr>
+    @{
+        con.Open();
+        var tblTables = con.GetSchema(
+        SqlClientMetaDataCollectionNames.Tables,
+        new string[] { null, null, null, "BASE TABLE" });
+        DataTable columnsTable = null;
+        foreach (DataRow rowDatabase in tblTables.Rows)
+        {
+            var tableName = rowDatabase["TABLE_NAME"].ToString();
+            if (!tableName.StartsWith("tbl")) { continue; }
+
+            columnsTable = con.GetSchema(SqlClientMetaDataCollectionNames.Columns, new string[] { null, null, tableName });
+            var columnName = string.Empty;
+            foreach (DataColumn c in columnsTable.Columns)
+            {
+                columnName += c.ColumnName + "|";
+            }
+            <tr data-column="@columnName">
+                <td colspan='@(numberOfColumn - 1)' align='center'>
+                    <b>Table Description</b>
+                </td>
+                <td align='center'>
+                    <b>Table Name</b>
+                </td>
+            </tr>
+            <tr>
+                <td colspan='@(numberOfColumn - 1)'></td>
+                <td colspan='1' align='center'>@tableName </td>
+            </tr>
+            <tr>
+                <td><b> No</b></td>
+                <td><b> Field Name</b></td>
+                <td><b> Data Type</b></td>
+                <td><b> Size</b></td>
+                <td><b> Nullable </b></td>
+                <td><b> Default value </b></td>
+                <td><b> Explanation </b></td>
+            </tr>
+            DataRow[] dataRows = columnsTable.Select(string.Empty, "ORDINAL_POSITION ASC").ToArray();
+            for (int i = 0; i < dataRows.Count(); i++)
+            {
+                var columnsRows = dataRows[i];
+                <tr>
+                    <td>@columnsRows["ORDINAL_POSITION"]</td>
+                    <td>@columnsRows["COLUMN_NAME"].ToString()</td>
+                    <td>@columnsRows["DATA_TYPE"].ToString()</td>
+                    <td>
+                        @{
+                            var maxlength = columnsRows["CHARACTER_MAXIMUM_LENGTH"].ToString();
+                            if (maxlength == "-1")
+                            {
+                                maxlength = "MAX";
+                            }
+                        }
+                        @maxlength
+                    </td>
+                    <td align="center">@(columnsRows["IS_NULLABLE"].ToString() == "YES" ? "Y" : "")</td>
+                    <td align="right">
+                        @{
+                            var defaultVal = columnsRows["COLUMN_DEFAULT"].ToString();
+                            if (defaultVal.StartsWith("(("))
+                            {
+                                defaultVal = defaultVal.Replace("((", "").Replace("))", "");
+                            }
+                            if (defaultVal.StartsWith("("))
+                            {
+                                defaultVal = defaultVal.Substring(1);
+                                defaultVal = defaultVal.Remove(defaultVal.Length - 1);
+                            }
+                        }
+                        @defaultVal
+                    </td>
+                    <td></td>
+                </tr>
+            }
+            <tr><td colspan="@numberOfColumn">&nbsp;</td></tr>
+            <tr><td colspan="@numberOfColumn">&nbsp;</td></tr>
+        }
+        con.Close();
+    }
+</TABLE>
