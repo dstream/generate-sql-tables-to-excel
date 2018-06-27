@@ -39,7 +39,7 @@
         foreach (DataRow rowDatabase in tblTables.Rows)
         {
             var tableName = rowDatabase["TABLE_NAME"].ToString();
-            if (!tableName.StartsWith("tbl")) { continue; }
+            if(!string.IsNullOrEmpty(AppSettings.Instance.TablePrefix) && !tableName.StartsWith(AppSettings.Instance.TablePrefix)) { continue; }
 
             columnsTable = con.GetSchema(SqlClientMetaDataCollectionNames.Columns, new string[] { null, null, tableName });
             var columnName = string.Empty;
